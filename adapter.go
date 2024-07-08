@@ -12,6 +12,8 @@ var ErrWrite = errors.New("write failed")
 var ErrWriteLength = errors.New("write failed to send all bytes")
 var ErrTimeout = errors.New("timeout")
 
+const BeaconInterval = 6 * time.Second
+
 const maxPayload = 1 + 1 + 110 // CONFIG SET requests: ID[1], Offset[1], Data[up to 110 bytes]
 
 const (
@@ -26,6 +28,9 @@ const (
 
 type Adapter struct {
 	wire io.ReadWriter
+
+	lowestID            byte
+	beaconReferenceTime int64
 
 	state   byte
 	message Message
@@ -120,6 +125,7 @@ func (a *Adapter) Receive() (*Message, error) {
 				a.message = Message{}
 				a.state = stateIdle
 				if result.Checksum == b {
+					a.handleBeaconMaybe(&result)
 					return &result, nil
 				} else {
 					return nil, ErrWrongChecksum
@@ -153,4 +159,40 @@ func (a *Adapter) Reset() {
 			return
 		}
 	}
+}
+
+// BeaconTime returns the next time when a beacon with the given ID should be broadcasted.
+func (a *Adapter) BeaconTime(id byte) time.Time {
+	if a.beaconReferenceTime == 0 {
+		return time.Time{}
+	}
+	offset := beaconOffset(id)
+	t := a.beaconReferenceTime + offset.Milliseconds()
+	now := time.Now().UnixMilli()
+	for t < now {
+		t += BeaconInterval.Milliseconds()
+	}
+	return time.UnixMilli(t)
+}
+
+func (a *Adapter) handleBeaconMaybe(message *Message) {
+	if message.Command != CmdBeacon {
+		return
+	}
+	id := message.Payload[0]
+	if a.lowestID == 0 || a.lowestID > id {
+		a.lowestID = id
+	}
+	if id != a.lowestID {
+		return
+	}
+	// The beacon with the lowest ID is the reference beacon.
+	offset := beaconOffset(a.lowestID)
+	a.beaconReferenceTime = time.Now().UnixMilli() - offset.Milliseconds()
+}
+
+func beaconOffset(id byte) time.Duration {
+	team := (id << 4) - 0x0A
+	player := (id & 0x0F) - 1
+	return time.Duration(team)*time.Second + time.Duration(player)*100*time.Millisecond
 }

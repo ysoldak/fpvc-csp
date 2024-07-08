@@ -25,7 +25,22 @@ func NewBeaconFromMessage(message *Message) *Beacon {
 func (b *Beacon) Message() *Message {
 	data := make([]byte, 1+10+20)
 	data[0] = b.ID
-	copy(data[1:], []byte(b.Name))
-	copy(data[11:], []byte(b.Description))
+	nameLen := len(b.Name)
+	for i := 0; i < 10; i++ {
+		if i < nameLen {
+			data[1+i] = b.Name[i]
+		} else {
+			data[1+i] = 0x20
+		}
+	}
+	descLen := len(b.Description)
+	for i := 0; i < 20; i++ {
+		if i < descLen {
+			data[11+i] = b.Description[i]
+		} else {
+			data[11+i] = 0x20
+		}
+	}
+
 	return NewBroadcast(CmdBeacon, data)
 }
