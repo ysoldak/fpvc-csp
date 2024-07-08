@@ -10,9 +10,12 @@ var ErrWrongChecksum = errors.New("wrong checksum")
 var ErrWrite = errors.New("write failed")
 var ErrWriteLength = errors.New("write failed to send all bytes")
 
+const maxPayload = 1 + 1 + 110 // CONFIG SET requests: ID[1], Offset[1], Data[up to 110 bytes]
+
 const (
 	stateIdle byte = iota
 	stateHeader
+	stateDirection
 	stateLength
 	stateCommand
 	statePayload
@@ -33,8 +36,8 @@ func NewAdapter(wire io.ReadWriter) *Adapter {
 }
 
 // Send a message.
-func (a *Adapter) Send(m *Message) error {
-	bytes := m.Bytes()
+func (a *Adapter) Send(message *Message) error {
+	bytes := message.Bytes()
 	logTs("SEND ")
 	for _, b := range bytes {
 		log(" %02X", b)
@@ -71,13 +74,21 @@ func (a *Adapter) Receive() (*Message, error) {
 				if b == 'C' {
 					logTs("HEADER %02X\n", b)
 					a.message.Header[1] = b
-					a.state = stateLength
+					a.state = stateDirection
 				} else {
 					a.state = stateIdle
 				}
+			case stateDirection:
+				logTs("DIRECTION %02X\n", b)
+				if b != '>' && b != '<' {
+					a.state = stateIdle
+					continue
+				}
+				a.message.Direction = b
+				a.state = stateLength
 			case stateLength:
 				logTs("LENGTH %02X\n", b)
-				if b > MAX_PAYLOAD {
+				if b > maxPayload {
 					a.state = stateIdle
 					continue
 				}
