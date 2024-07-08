@@ -3,12 +3,14 @@ package csp
 import (
 	"errors"
 	"io"
+	"time"
 )
 
 var ErrNoData = errors.New("no data available")
 var ErrWrongChecksum = errors.New("wrong checksum")
 var ErrWrite = errors.New("write failed")
 var ErrWriteLength = errors.New("write failed to send all bytes")
+var ErrTimeout = errors.New("timeout")
 
 const maxPayload = 1 + 1 + 110 // CONFIG SET requests: ID[1], Offset[1], Data[up to 110 bytes]
 
@@ -80,11 +82,11 @@ func (a *Adapter) Receive() (*Message, error) {
 				}
 			case stateDirection:
 				logTs("DIRECTION %02X\n", b)
-				if b != '>' && b != '<' {
+				if b != byte(DirRequest) && b != byte(DirResponse) {
 					a.state = stateIdle
 					continue
 				}
-				a.message.Direction = b
+				a.message.Direction = Direction(b)
 				a.state = stateLength
 			case stateLength:
 				logTs("LENGTH %02X\n", b)
@@ -98,7 +100,7 @@ func (a *Adapter) Receive() (*Message, error) {
 				a.state = stateCommand
 			case stateCommand:
 				logTs("COMMAND %02X\n", b)
-				a.message.Command = b
+				a.message.Command = Command(b)
 				a.message.Checksum ^= b
 				a.state = statePayload
 			case statePayload:
@@ -125,6 +127,19 @@ func (a *Adapter) Receive() (*Message, error) {
 			}
 		}
 	}
+}
+
+// Wait for a message with the given command and direction.
+func (a *Adapter) Wait(command Command, direction Direction, timeout time.Duration) (*Message, error) {
+	start := time.Now()
+	for time.Since(start) > timeout {
+		message, _ := a.Receive()
+		// wait for correct message
+		if message != nil && message.Command == command && message.Direction == direction {
+			return message, nil
+		}
+	}
+	return nil, ErrTimeout
 }
 
 // Reset the state machine and clear the message buffer.
