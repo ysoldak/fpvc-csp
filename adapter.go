@@ -132,7 +132,7 @@ func (a *Adapter) Receive() (*Message, error) {
 // Wait for a message with the given command and direction.
 func (a *Adapter) Wait(command Command, direction Direction, timeout time.Duration) (*Message, error) {
 	start := time.Now()
-	for time.Since(start) > timeout {
+	for time.Since(start) < timeout {
 		message, _ := a.Receive()
 		// wait for correct message
 		if message != nil && message.Command == command && message.Direction == direction {
