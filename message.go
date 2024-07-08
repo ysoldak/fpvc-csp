@@ -5,19 +5,19 @@ type Command byte
 
 const (
 	// < ID[1], Name[10], Description[20] <-- when not in battle, broadcast beacon message
-	CommandBeacon Command = 0x60
+	CmdBeacon Command = 0x60
 
 	// > ID[1], Offset[1], Length[1]   <-- Length[1] = 1 to 110; to read full config: Offset[1] = 0, Length[1] = 110
 	// < ID[1], Offset[1], Data[<=110] <-- data length = message payload length - 2, shall be equal to Length[1] passed in request
-	CommandConfigGet Command = 0x72
+	CmdConfigGet Command = 0x72
 
 	// > ID[1], Offset[1], Data[<=110] <-- data length = message payload length - 2
 	// < ID[1], Offset[1], Data[<=110] <-- ID[1] can be new if team or player changed
-	CommandConfigSet Command = 0x74
+	CmdConfigSet Command = 0x74
 
 	// > ID[1], Lives[1] <-- the player who was hit sends this message
 	// < ID[1], Power[1] <-- the player who was shooting replies with this message
-	CommandHit Command = 0x82
+	CmdHit Command = 0x82
 )
 
 // Directions

@@ -20,5 +20,5 @@ func NewHitResponseFromMessage(message *Message) *HitResponse {
 }
 
 func (c *HitResponse) Message() *Message {
-	return NewResponse(CommandHit, []byte{c.ID, c.Power})
+	return NewResponse(CmdHit, []byte{c.ID, c.Power})
 }

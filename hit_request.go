@@ -20,5 +20,5 @@ func NewHitRequestFromMessage(message *Message) *HitRequest {
 }
 
 func (h *HitRequest) Message() *Message {
-	return NewRequest(CommandHit, []byte{h.ID, h.Lives})
+	return NewRequest(CmdHit, []byte{h.ID, h.Lives})
 }

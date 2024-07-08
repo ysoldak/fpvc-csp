@@ -23,5 +23,5 @@ func NewConfigGetRequestFromMessage(message *Message) *ConfigGetRequest {
 }
 
 func (c *ConfigGetRequest) Message() *Message {
-	return NewRequest(CommandConfigGet, []byte{c.ID, c.Offset, c.Length})
+	return NewRequest(CmdConfigGet, []byte{c.ID, c.Offset, c.Length})
 }

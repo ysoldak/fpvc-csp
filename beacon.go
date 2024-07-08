@@ -27,5 +27,5 @@ func (b *Beacon) Message() *Message {
 	data[0] = b.ID
 	copy(data[1:], []byte(b.Name))
 	copy(data[11:], []byte(b.Description))
-	return NewBroadcast(CommandBeacon, data)
+	return NewBroadcast(CmdBeacon, data)
 }

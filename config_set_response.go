@@ -27,5 +27,5 @@ func (c *ConfigSetResponse) Message() *Message {
 	data[0] = c.ID
 	data[1] = c.Offset
 	copy(data[2:], c.Data)
-	return NewResponse(CommandConfigSet, data)
+	return NewResponse(CmdConfigSet, data)
 }
