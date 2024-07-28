@@ -5,16 +5,19 @@ package csp
 import "time"
 
 // Wait for a message with the given command and direction.
-func (a *Adapter) Wait(command Command, direction Direction, timeout time.Duration) (*Message, error) {
+func (a *Adapter) Wait(command Command, direction Direction, timeout time.Duration, message *Message) error {
 	start := time.Now()
 	for time.Since(start) < timeout {
-		message, _ := a.Receive()
+		err := a.Receive(message)
+		if err != nil {
+			continue
+		}
 		// wait for correct message
-		if message != nil && message.Command == command && message.Direction == direction {
-			return message, nil
+		if message.Command == command && message.Direction == direction {
+			return nil
 		}
 	}
-	return nil, ErrTimeout
+	return ErrTimeout
 }
 
 // BeaconTime returns the next time when a beacon with the given ID should be broadcasted.

@@ -39,18 +39,22 @@ type Adapter struct {
 func NewAdapter(wire io.ReadWriter) *Adapter {
 	return &Adapter{
 		wire: wire,
+		message: Message{
+			Payload: []byte{},
+		},
 	}
 }
 
 // Send a message.
 func (a *Adapter) Send(message *Message) error {
-	bytes := message.Bytes()
+	bytes := make([]byte, 5+maxPayload+1) // optimisation to avoid heap allocation: could allocate only required size, but that is not constant
+	_ = message.Bytes(bytes)
 	logTs("SEND ")
 	for _, b := range bytes {
 		log(" %02X", b)
 	}
 	log("\n")
-	n, err := a.wire.Write(bytes)
+	n, err := a.wire.Write(bytes[0:message.Size()])
 	if err != nil {
 		return ErrWrite
 	}
@@ -61,12 +65,12 @@ func (a *Adapter) Send(message *Message) error {
 }
 
 // Receive a message; returns nil if no message is available (yet).
-func (a *Adapter) Receive() (*Message, error) {
+func (a *Adapter) Receive(result *Message) error {
 	buf := make([]byte, 16)
 	for {
 		n, err := a.wire.Read(buf)
 		if err != nil || n == 0 {
-			return nil, ErrNoData
+			return ErrNoData
 		}
 		for i := 0; i < n; i++ {
 			b := buf[i]
@@ -100,7 +104,7 @@ func (a *Adapter) Receive() (*Message, error) {
 					continue
 				}
 				a.message.Length = b
-				a.message.Payload = []byte{}
+				a.message.Payload = a.message.Payload[:0]
 				a.message.Checksum = b
 				a.state = stateCommand
 			case stateCommand:
@@ -116,19 +120,18 @@ func (a *Adapter) Receive() (*Message, error) {
 				}
 			case stateChecksum:
 				logTs("PAYLOAD ")
-				for _, bb := range a.message.Bytes() {
+				for _, bb := range a.message.Payload {
 					log(" %02X", bb)
 				}
 				log("\n")
 				logTs("CHECKSUM expected %02X ?= %02X actual\n", a.message.Checksum, b)
-				result := a.message
-				a.message = Message{}
+				result.Copy(&a.message)
 				a.state = stateIdle
 				if result.Checksum == b {
-					a.handleBeaconMaybe(&result)
-					return &result, nil
+					a.handleBeaconMaybe(result)
+					return nil
 				} else {
-					return nil, ErrWrongChecksum
+					return ErrWrongChecksum
 				}
 			}
 		}
@@ -138,7 +141,6 @@ func (a *Adapter) Receive() (*Message, error) {
 // Reset the state machine and clear the message buffer.
 func (a *Adapter) Reset() {
 	a.state = stateIdle
-	a.message = Message{}
 	buf := make([]byte, 16)
 	for {
 		n, err := a.wire.Read(buf)

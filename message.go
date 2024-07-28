@@ -1,5 +1,7 @@
 package csp
 
+import "errors"
+
 // Commands
 type Command byte
 
@@ -19,6 +21,8 @@ const (
 	// < ID[1], Power[1] <-- the player who was shooting replies with this message
 	CmdHit Command = 0x82
 )
+
+var errBufferTooSmall = errors.New("buffer too small")
 
 // Directions
 type Direction byte
@@ -64,16 +68,34 @@ func NewMessage(direction Direction, command Command, data []byte) *Message {
 	}
 }
 
-func (m *Message) Bytes() []byte {
-	b := make([]byte, 5+len(m.Payload)+1)
+func (m *Message) Copy(o *Message) {
+	copy(m.Header[:], o.Header[:])
+	m.Direction = o.Direction
+	m.Length = o.Length
+	m.Command = o.Command
+	if m.Payload == nil {
+		m.Payload = make([]byte, o.Length)
+	}
+	copy(m.Payload, o.Payload)
+	m.Checksum = o.Checksum
+}
+
+func (m *Message) Bytes(b []byte) error {
+	if len(b) < int(m.Size()) {
+		return errBufferTooSmall
+	}
 	b[0] = m.Header[0]
 	b[1] = m.Header[1]
 	b[2] = byte(m.Direction)
 	b[3] = m.Length
 	b[4] = byte(m.Command)
 	copy(b[5:], m.Payload)
-	b[len(b)-1] = m.Checksum
-	return b
+	b[m.Size()-1] = m.Checksum
+	return nil
+}
+
+func (m *Message) Size() byte {
+	return 5 + m.Length + 1
 }
 
 func (m *Message) IsRequest() bool {

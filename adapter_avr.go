@@ -3,16 +3,19 @@
 package csp
 
 // Wait for a message with the given command and direction.
-func (a *Adapter) Wait(command Command, direction Direction, timeout int64) (*Message, error) {
+func (a *Adapter) Wait(command Command, direction Direction, timeout int64, message *Message) error {
 	start := runtime_nanotime()
 	for runtime_nanotime()-start < timeout {
-		message, _ := a.Receive()
+		err := a.Receive(message)
+		if err != nil {
+			continue
+		}
 		// wait for correct message
-		if message != nil && message.Command == command && message.Direction == direction {
-			return message, nil
+		if message.Command == command && message.Direction == direction {
+			return nil
 		}
 	}
-	return nil, ErrTimeout
+	return ErrTimeout
 }
 
 // BeaconTime returns the next time when a beacon with the given ID should be broadcasted.
